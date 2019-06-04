@@ -21,5 +21,6 @@ func main() {
 	addr := fmt.Sprintf("%s:%s", config.ListeningAddress,
 		config.ListeningPort)
 	srv := t2m.NewServer(addr, config.TargetURL)
+	log.Println("Starting http server on ", addr, "...")
 	log.Fatal(srv.ListenAndServe())
 }
