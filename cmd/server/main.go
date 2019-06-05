@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/frnksgr/t2m/pkg/config"
 	"github.com/frnksgr/t2m/pkg/t2m"
 )
 
-var config = struct {
+var cfg = struct {
 	ListeningPort    string
 	ListeningAddress string
 	TargetURL        string
@@ -17,10 +18,17 @@ var config = struct {
 	TargetURL:        "http://localhost:8080",
 }
 
+func init() {
+	if err := config.FromEnv(&cfg); err != nil {
+		panic(err)
+	}
+}
+
 func main() {
-	addr := fmt.Sprintf("%s:%s", config.ListeningAddress,
-		config.ListeningPort)
-	srv := t2m.NewServer(addr, config.TargetURL)
+	addr := fmt.Sprintf("%s:%s", cfg.ListeningAddress,
+		cfg.ListeningPort)
+	srv := t2m.NewServer(addr, cfg.TargetURL)
+	log.Println("Version", t2m.Version)
 	log.Println("Starting http server on ", addr, "...")
 	log.Fatal(srv.ListenAndServe())
 }

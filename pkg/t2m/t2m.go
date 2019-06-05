@@ -16,7 +16,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// Server blabla
+// Server bla bla
 type Server struct {
 	uuid      uuid.UUID
 	server    *http.Server
@@ -49,6 +49,10 @@ func NewServer(addr string, targetURL string) *Server {
 	r.HandleFunc("/", s.handleRootNode).Methods("GET").
 		Queries("count", "{count:[1-9]\\d{0,3}}")
 	r.HandleFunc("/inner", s.handleInnerNode).Methods("POST")
+
+	// some helpful handlers
+	r.HandleFunc("/fail", s.handleFail)
+	r.HandleFunc("/crash", s.handleCrash)
 
 	return s
 }
@@ -129,6 +133,9 @@ func (s *Server) handleInnerNode(w http.ResponseWriter, r *http.Request) {
 	s.handleNode(n, w, r)
 }
 
+// response format
+type topology map[string]string
+
 func (s *Server) handleNode(n *node, w http.ResponseWriter, r *http.Request) {
 	cn := make([]*node, 0, 2) // child nodes
 	nc := 1                   // node count
@@ -194,4 +201,12 @@ func requestLogger(next http.Handler) http.Handler {
 			fmt.Fprintf(os.Stderr, "ID: %s\n", s)
 			next.ServeHTTP(w, r)
 		})
+}
+
+func (s *Server) handleFail(w http.ResponseWriter, r *http.Request) {
+	log.Panicf("Crashing tcp connection to server %s", s.uuid)
+}
+
+func (s *Server) handleCrash(w http.ResponseWriter, r *http.Request) {
+	log.Fatalf("Crashing server %s", s.uuid)
 }
