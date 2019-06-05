@@ -101,7 +101,7 @@ func (s *Server) handleRootNode(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	count, err := strconv.Atoi(vars["count"])
 	if err != nil {
-		panic(err)
+		panic(err) // should not happen because of regex in count parameter
 	}
 
 	uuid := uuid.New()
@@ -133,12 +133,12 @@ func (s *Server) handleInnerNode(w http.ResponseWriter, r *http.Request) {
 	s.handleNode(n, w, r)
 }
 
-// response format
-type topology map[string]string
-
 func (s *Server) handleNode(n *node, w http.ResponseWriter, r *http.Request) {
-	cn := make([]*node, 0, 2) // child nodes
-	nc := 1                   // node count
+	cn := make([]*node, 0, 2)     // child nodes
+	nr := make(map[string]string) // node result(s)
+
+	// node without children
+	nr[s.uuid.String()] = fmt.Sprintf("%04d", n.Index)
 
 	// create a child if its index <= count
 	for i := 0; i < 2; i++ {
@@ -163,26 +163,42 @@ func (s *Server) handleNode(n *node, w http.ResponseWriter, r *http.Request) {
 	}
 	for range cn {
 		cr := <-rc
-		if cr.err != nil {
+		if cr.err != nil { // failure upon request to spawn a child
 			panic(cr.err)
 		}
 		if cr.resp.StatusCode != http.StatusOK {
+			// tread successful http response as intermediate problem
 			statusCode = http.StatusServiceUnavailable // 503
 		}
 		body, err := ioutil.ReadAll(cr.resp.Body)
 		if err != nil {
-			statusCode = http.StatusServiceUnavailable
+			panic(err)
 		}
-		cnc, err := strconv.Atoi(strings.TrimSpace(string(body)))
-		if err != nil {
-			statusCode = http.StatusServiceUnavailable
+		cnr := make(map[string]string)
+		if err := json.Unmarshal(body, &cnr); err != nil {
+			panic(err)
 		}
-		nc += cnc
+
+		// merge client result with node result
+		for k, v := range cnr {
+			if nr[k] == "" {
+				nr[k] = v
+			} else {
+				// merge values
+				nr[k] = fmt.Sprintf("%s %s", nr[k], v)
+			}
+		}
 	}
+
 	// create response
+
 	w.WriteHeader(statusCode)
-	w.Header().Set("Content-Type", "text/plain")
-	fmt.Fprintln(w, nc)
+	w.Header().Set("Content-Type", "application/json")
+	// write aggregated noderesult to response body encoded in json
+	e := json.NewEncoder(w)
+	if err := e.Encode(nr); err != nil {
+		panic(err)
+	}
 }
 
 // request logging middleware used for debugging
