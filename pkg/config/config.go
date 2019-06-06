@@ -90,7 +90,7 @@ func FromEnv(cfg interface{}) error {
 				}
 				f.v.SetFloat(v)
 			case reflect.String:
-				f.v.SetString("hello")
+				f.v.SetString(v)
 			default:
 				return errors.New("unknown config type")
 			}

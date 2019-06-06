@@ -1,0 +1,16 @@
+version: "3"
+services:
+  frontend:
+    image: haproxy:1.9
+    depends_on:
+    - backend
+    ports: # host:container
+    - "8080:8080"
+    volumes:
+      - ${PWD}/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+
+  backend:
+    image: frnksgr/t2m:alpine3.9
+    environment:
+      TARGET_URL: "http://frontend:8080"
+      DEBUG: "true"

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"reflect"
 	"testing"
 )
@@ -142,5 +143,69 @@ func TestNameToEnv(t *testing.T) {
 				t.Errorf("got %q, want %q", got, tt.out)
 			}
 		})
+	}
+}
+
+func TestFromEnv(t *testing.T) {
+	cfg := &Config{}
+	os.Setenv("FIELD_BOOL", "true")
+	os.Setenv("FIELD_INT", "-1")
+	os.Setenv("FIELD_INT8", "-8")
+	os.Setenv("FIELD_INT16", "-16")
+	os.Setenv("FIELD_INT32", "-32")
+	os.Setenv("FIELD_INT64", "-64")
+	os.Setenv("FIELD_UINT", "1")
+	os.Setenv("FIELD_UINT8", "8")
+	os.Setenv("FIELD_UINT16", "16")
+	os.Setenv("FIELD_UINT32", "32")
+	os.Setenv("FIELD_UINT64", "64")
+	os.Setenv("FIELD_STRING", "hello")
+	os.Setenv("FIELD_FLOAT32", "0.32")
+	os.Setenv("FIELD_FLOAT64", "0.64")
+	if err := FromEnv(cfg); err != nil {
+		t.Errorf("Unexpected error %s", err)
+		return
+	}
+	if cfg.FieldBool != true {
+		t.Errorf("Expecting cfg.FieldBool set to true, got %t", cfg.FieldBool)
+	}
+	if cfg.FieldInt != -1 {
+		t.Errorf("Expecting cfg.FieldInt set to -1, got %d", cfg.FieldInt)
+	}
+	if cfg.FieldInt8 != -8 {
+		t.Errorf("Expecting cfg.FieldInt8 set to -8, got %d", cfg.FieldInt8)
+	}
+	if cfg.FieldInt16 != -16 {
+		t.Errorf("Expecting cfg.FieldInt16 set to -16, got %d", cfg.FieldInt16)
+	}
+	if cfg.FieldInt32 != -32 {
+		t.Errorf("Expecting cfg.FieldInt32 set to -32, got %d", cfg.FieldInt32)
+	}
+	if cfg.FieldInt64 != -64 {
+		t.Errorf("Expecting cfg.FieldInt64 set to -64, got %d", cfg.FieldInt64)
+	}
+	if cfg.FieldUint != 1 {
+		t.Errorf("Expecting cfg.FieldUint set to 1, got %d", cfg.FieldUint)
+	}
+	if cfg.FieldUint8 != 8 {
+		t.Errorf("Expecting cfg.FieldUint8 set to 8, got %d", cfg.FieldUint8)
+	}
+	if cfg.FieldUint16 != 16 {
+		t.Errorf("Expecting cfg.FieldUint16 set to 16, got %d", cfg.FieldUint16)
+	}
+	if cfg.FieldUint32 != 32 {
+		t.Errorf("Expecting cfg.FieldUint32 set to 1, got %d", cfg.FieldUint32)
+	}
+	if cfg.FieldUint64 != 64 {
+		t.Errorf("Expecting cfg.FieldUint64 set to 64, got %d", cfg.FieldUint64)
+	}
+	if cfg.FieldFloat32 != .32 {
+		t.Errorf("Expecting cfg.FieldUint64 set to 0.32, got %f", cfg.FieldFloat32)
+	}
+	if cfg.FieldFloat64 != .64 {
+		t.Errorf("Expecting cfg.FieldUint64 set to 0.64, got %f", cfg.FieldFloat64)
+	}
+	if cfg.FieldString != "hello" {
+		t.Errorf("Expecting cfg.FieldString set to \"hello\", got %q", cfg.FieldString)
 	}
 }

@@ -53,6 +53,7 @@ func NewServer(addr string, targetURL string) *Server {
 	// some helpful handlers
 	r.HandleFunc("/fail", s.handleFail)
 	r.HandleFunc("/crash", s.handleCrash)
+	r.HandleFunc("/healthz", s.handleHealthz)
 
 	return s
 }
@@ -214,7 +215,7 @@ func requestLogger(next http.Handler) http.Handler {
 			s := strings.ReplaceAll(
 				strings.ReplaceAll(string(dump), "\r\n", "\n"),
 				"\n", "\n  ")
-			fmt.Fprintf(os.Stderr, "ID: %s\n", s)
+			fmt.Fprintf(os.Stderr, "%s\n", s)
 			next.ServeHTTP(w, r)
 		})
 }
@@ -225,4 +226,8 @@ func (s *Server) handleFail(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCrash(w http.ResponseWriter, r *http.Request) {
 	log.Fatalf("Crashing server %s", s.uuid)
+}
+
+func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "%s OK\n", s.uuid)
 }
