@@ -1,3 +1,6 @@
+// +build linux
+// +build amd64
+
 package task
 
 import (
@@ -8,9 +11,6 @@ import (
 
 // Tasklet bla bla
 type Tasklet func(l *log.Logger, done <-chan struct{})
-
-// TaskletGenerator bla bla
-//type TaskletGenerator func(a ...interface{}) Tasklet
 
 // None bla bla
 func None() Tasklet {
