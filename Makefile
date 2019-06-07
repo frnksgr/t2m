@@ -6,6 +6,11 @@ else
 	GOENV := GOOS=linux GORACH=amd64
 endif
 
+DEBUG ?=
+ifdef DEBUG
+	GOBUILDFLAGS := -gcflags '-m -m'
+endif
+
 
 IMAGE = docker.io/frnksgr/t2m
 
@@ -18,8 +23,8 @@ help:
 
 .PHONY: build
 build: ## build local to create bin/... executable(s)
-	$(GOENV) go build -v ./internal/pkg/...
-	$(GOENV) go build -o ./bin/server ./cmd/server/...
+	$(GOENV) go build $(GOBUILDFLAGS) -v ./pkg/...
+	$(GOENV) go build $(GOBUILDFLAGS) -o ./bin/server ./cmd/server/...
 
 .PHONY: clean
 clean: ## clean up

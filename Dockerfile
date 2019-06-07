@@ -2,7 +2,6 @@
 ARG BASEIMAGE=scratch
 
 FROM golang:1.12 as builder
-RUN mkdir /app
 WORKDIR /app
 COPY . /app
 RUN STATIC=1 make build
