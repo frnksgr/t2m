@@ -2,12 +2,17 @@ package config
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+)
+
+var (
+	errWrongConfigType      = errors.New("Configuration must be pointer to struct")
+	errWrongConfigFieldType = errors.New("Unsupported config field type")
+	errFieldTypeConversion  = errors.New("Config value cannot be converted to field type")
 )
 
 type configItem struct {
@@ -19,12 +24,12 @@ func configItems(cfg interface{}) ([]configItem, error) {
 	t := reflect.TypeOf(cfg)
 	v := reflect.ValueOf(cfg)
 	if t.Kind() != reflect.Ptr {
-		return nil, fmt.Errorf("Expected pointer, got %s", v.Kind())
+		return nil, errWrongConfigType
 	}
 	vs := v.Elem()
 	ts := t.Elem()
 	if ts.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("Expected struct, got %s", ts.Kind())
+		return nil, errWrongConfigType
 	}
 	fc := ts.NumField()
 	fields := make([]configItem, 0, fc)
@@ -62,37 +67,37 @@ func FromEnv(cfg interface{}) error {
 			case reflect.Bool:
 				v, err := strconv.ParseBool(v)
 				if err != nil {
-					return err
+					return errFieldTypeConversion
 				}
 				f.v.SetBool(v)
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 				v, err := strconv.Atoi(v)
 				if err != nil {
-					return err
+					return errFieldTypeConversion
 				}
 				f.v.SetInt(int64(v))
 			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 				v, err := strconv.Atoi(v)
 				if err != nil {
-					return err
+					return errFieldTypeConversion
 				}
 				f.v.SetUint(uint64(v))
 			case reflect.Float32:
 				v, err := strconv.ParseFloat(v, 32)
 				if err != nil {
-					return err
+					return errFieldTypeConversion
 				}
 				f.v.SetFloat(v)
 			case reflect.Float64:
 				v, err := strconv.ParseFloat(v, 34)
 				if err != nil {
-					return err
+					return errFieldTypeConversion
 				}
 				f.v.SetFloat(v)
 			case reflect.String:
 				f.v.SetString(v)
 			default:
-				return errors.New("unknown config type")
+				return errWrongConfigFieldType
 			}
 		}
 	}

@@ -1,0 +1,56 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: t2m
+  namespace: default
+spec:
+  replicas: 5
+  template:
+    metadata:
+      labels:
+        app: t2m
+    spec:
+      containers:
+      - name: t2m
+        image: frnksgr/t2m
+        ports:
+        - containerPort: 8080
+        env:
+        - name: TARGET_URL
+          value: http://t2m.default.svc.cluster.local
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name:  t2m
+  namespace: default
+  labels:
+    app: t2m
+spec:
+  selector:
+    app:  t2m
+  type: NodePort
+  sessionAffinity: None
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 8080
+
+---
+# NOTE: FAILING (for unknown reasons) if knative is deployed on the cluster
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: t2m
+  namespace: default
+spec:
+  rules:
+  - host: "t2m.default.example.com"
+    http:
+      paths: 
+      - path: /
+        backend:
+          serviceName: t2m
+          servicePort: 80

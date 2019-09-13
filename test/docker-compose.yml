@@ -13,4 +13,4 @@ services:
     image: frnksgr/t2m:alpine3.9
     environment:
       TARGET_URL: "http://frontend:8080"
-      DEBUG: "true"
+      #DEBUG: "true"
