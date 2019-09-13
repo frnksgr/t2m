@@ -1,0 +1,16 @@
+---
+applications:
+- name: t2m
+  memory: 64M
+  disk_quota: 50M
+  instances: 10
+  docker:
+    image: docker.io/frnksgr/t2m:alpine3.9
+  health-check-type: http
+  health-check-http-endpoint: /healthz
+  routes:
+  - route: t2m.sys.cf.frnksgr.net
+  - route: t2m.priv.cf.frnksgr.net
+  - route: t2m.pub.cf.frnksgr.net
+  env:
+    TARGET_URL: "http://t2m.priv.cf.frnksgr.net"
