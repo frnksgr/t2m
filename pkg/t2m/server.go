@@ -1,12 +1,33 @@
 package t2m
 
 import (
+	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"os"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
+
+// request logging middleware used for debugging
+func requestLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			dump, err := httputil.DumpRequest(r, true)
+			if err != nil {
+				http.Error(w, fmt.Sprint(err),
+					http.StatusInternalServerError)
+				return
+			}
+			s := strings.ReplaceAll(
+				strings.ReplaceAll(string(dump), "\r\n", "\n"),
+				"\n", "\n  ")
+			fmt.Fprintf(os.Stderr, "%s\n", s)
+			next.ServeHTTP(w, r)
+		})
+}
 
 // Server the HTTP server
 type Server struct {
@@ -17,14 +38,6 @@ type Server struct {
 	targetURL string // balanced as binary tree. I.e. each request will at most create 2
 	// sub requests. Each request is marked by a node.
 
-}
-
-// ListenAndServe start server
-func (s *Server) ListenAndServe() error {
-	if os.Getenv("DEBUG") != "" {
-		s.server.Handler = requestLogger(s.server.Handler)
-	}
-	return s.server.ListenAndServe()
 }
 
 // NewServer create a new server
@@ -43,18 +56,26 @@ func NewServer(addr string, targetURL string) *Server {
 
 	// --- ROUTES ---
 
-	// Ingress route for spanning request tree
-	r.HandleFunc("/", s.handleRootNode).Methods("GET")
-	// internal requests
-	r.HandleFunc("/internal", s.handleInternalNode).Methods("POST")
-
 	// Get help
 	r.HandleFunc("/help", handleHelp).Methods("GET")
-
-	// Some helpful handlers
-	r.HandleFunc("/fail", s.handleFail)
-	r.HandleFunc("/crash", s.handleCrash)
-	r.HandleFunc("/healthz", s.handleHealthz)
-
+	// Health check for LM
+	r.HandleFunc("/healthz", s.handleHealthz).Methods("GET")
+	// Internal requests
+	r.HandleFunc("/internal", s.handleInternalNode).Methods("POST")
+	// External requests
+	r.HandleFunc("/{task:none|fail|crash|cpu|ram}", s.handleRootNode).Methods("GET")
 	return s
+}
+
+// Health endpoint
+func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "%s OK\n", s.uuid)
+}
+
+// ListenAndServe start server
+func (s *Server) ListenAndServe() error {
+	if os.Getenv("DEBUG") != "" {
+		s.server.Handler = requestLogger(s.server.Handler)
+	}
+	return s.server.ListenAndServe()
 }

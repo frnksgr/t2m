@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/frnksgr/t2m/pkg/config"
 	"github.com/frnksgr/t2m/pkg/t2m"
 )
 
@@ -20,7 +19,7 @@ var cfg = struct {
 }
 
 func init() {
-	if err := config.FromEnv(&cfg); err != nil {
+	if err := t2m.FromEnv(&cfg); err != nil {
 		panic(err)
 	}
 }

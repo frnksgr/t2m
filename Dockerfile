@@ -1,7 +1,7 @@
 # use scratch for K8S
 ARG BASEIMAGE=scratch
 
-FROM golang:1.12 as builder
+FROM golang:1.13 as builder
 WORKDIR /app
 COPY . /app
 RUN STATIC=1 make build
