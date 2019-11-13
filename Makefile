@@ -28,6 +28,10 @@ build: ## build local to create bin/... executable(s)
 	$(GOENV) go build $(GOBUILDFLAGS) -v ./pkg/...
 	$(GOENV) go build $(GOBUILDFLAGS) -o ./bin/server ./cmd/server/...
 
+.PHONY: run
+run: build ## run t2m a single process
+	@bin/server
+
 .PHONY: clean
 clean: ## clean up
 	go clean -i ./...
@@ -38,6 +42,7 @@ docker-build: ## build docker image
 	docker build -t $(IMAGE) .
 	docker tag $(IMAGE) $(IMAGE):scratch
 	docker build -t $(IMAGE):alpine3.9 --build-arg BASEIMAGE=alpine:3.9 .
+
 
 .PHONY: docker-push
 docker-push: docker-build ## push docker-image
