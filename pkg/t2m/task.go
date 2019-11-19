@@ -1,9 +1,7 @@
 package t2m
 
 import (
-	"errors"
 	"log"
-	"regexp"
 	"time"
 )
 
@@ -13,7 +11,7 @@ import (
 type tasklet func(l *log.Logger, done <-chan struct{})
 
 // block until stopped
-func none() tasklet {
+func sleep() tasklet {
 	return func(l *log.Logger, done <-chan struct{}) {
 		l.Println("Start none")
 		<-done
@@ -72,17 +70,11 @@ func crash() tasklet {
 	}
 }
 
-var taskNameRe = regexp.MustCompile("/(fail|crash|cpu|ram|none)|")
-
-func createTasklet(uri string) (tasklet, error) {
-	m := taskNameRe.FindStringSubmatch(uri)
-	if len(m) < 2 {
-		return nil, errors.New("no valid task specified")
-	}
+func createTasklet(name string) tasklet {
 	var t tasklet
-	switch m[1] {
-	case "none":
-		t = none()
+	switch name {
+	case "sleep":
+		t = sleep()
 	case "fail":
 		t = fail()
 	case "crash":
@@ -92,28 +84,18 @@ func createTasklet(uri string) (tasklet, error) {
 	case "ram":
 		t = ram(1024 * 1024 * 100) // 100 MB RAM
 	}
-	return t, nil
+	return t
 }
 
-func (n *node) execTask() error {
-	t, err := createTasklet(n.URI)
-	if err != nil {
-		return err
+func (n *node) execTask() {
+	if n.TaskName == "" {
+		return
 	}
+	t := createTasklet(n.TaskName)
 
-	//TODO: read these values from URI
-	d := time.Duration(50)
-	w := 0 // leaves only
-
-	if w == 0 && n.isLeave {
-		done := make(chan struct{})
-		go t(n.logger, done)
-		go func() {
-			t := time.NewTimer(d * time.Millisecond)
-			<-t.C
-			close(done)
-		}()
-	}
-
-	return nil
+	done := make(chan struct{})
+	go t(n.logger, done)
+	timer := time.NewTimer(time.Duration(n.TaskDuration) * time.Millisecond)
+	<-timer.C
+	close(done)
 }

@@ -32,12 +32,11 @@ func requestLogger(next http.Handler) http.Handler {
 // Server the HTTP server
 type Server struct {
 	// Unique ID of this server
-	uuid   uuid.UUID
+	id     uuid.UUID
 	server *http.Server
 	// Target URL for subsequent requests
 	targetURL string // balanced as binary tree. I.e. each request will at most create 2
 	// sub requests. Each request is marked by a node.
-
 }
 
 // NewServer create a new server
@@ -46,7 +45,7 @@ func NewServer(addr string, targetURL string) *Server {
 
 	// Just use defaults
 	s := &Server{
-		uuid: uuid.New(),
+		id: uuid.New(),
 		server: &http.Server{
 			Addr:    addr,
 			Handler: r,
@@ -63,13 +62,14 @@ func NewServer(addr string, targetURL string) *Server {
 	// Internal requests
 	r.HandleFunc("/internal", s.handleInternalNode).Methods("POST")
 	// External requests
-	r.HandleFunc("/{task:none|fail|crash|cpu|ram}", s.handleRootNode).Methods("GET")
+	r.HandleFunc("/{task:sleep|fail|crash|cpu|ram}", s.handleRootNode).Methods("GET")
+	r.HandleFunc("/", s.handleRootNode).Methods("GET")
 	return s
 }
 
 // Health endpoint
 func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%s OK\n", s.uuid)
+	fmt.Fprintf(w, "%s OK\n", s.id)
 }
 
 // ListenAndServe start server
