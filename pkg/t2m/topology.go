@@ -3,119 +3,146 @@ package t2m
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 
 	"github.com/google/uuid"
 )
 
-// Topologies for node(s)
 const (
-	// binary tree
-	topFan = iota
-	topChain
-	topBtree
+	maxSize = 1000
 )
 
-// nodeTypes
-const (
-	ntLeave = iota // a leave node i.e.no children
-	ntInner        // an inner node i.e with children
-)
+var taskRe = regexp.MustCompile("/([^/?]*)")
+var errUnknownTask = errors.New("Unknown task specified")
+var errQueryParameter = errors.New("Query parameter wrong")
 
-var topologyMap = map[string]int{
-	"fan":   topFan,
-	"btree": topBtree,
-	"chain": topChain,
-}
-
-// Node bla bla
-// A GET request like http://task?count=10
-// will create result in count-1 subsequent requests
-// which will form a tree (btree, chain, fan)
-// of node(s).
+// node manages meta data of a request node
 type node struct {
+	// Unique ID of request
+	RequestID uuid.UUID
 	// Topology of nodes
-	Topology int
-	// Unique ID of a request node in tree
-	Request uuid.UUID
+	Topology string
 	// Unique index of request node (starting at 1)
 	Index int
 	// Parents index of this request node (0 == no parent i.e. root node)
-	Parent int
-	// Size of tree i.e. count of request nodes
-	Count int
+	ParentIndex int
+	// Size of tree i.e. number of request nodes
+	Size int
 	// Depth of request node in tree (root node level == 0)
-	Level int
-	// Request URI defining task to be executed
-	URI string
-	// true if leave else false
-	isLeave bool
+	Depth int
+	// Name of Task
+	TaskName string
+	// Duration of task execution in ms
+	TaskDuration int
 	// Logger used for this specific request node
 	logger *log.Logger
 }
 
-// Create child nodes structures for this particular node
+// construct a new node
+// set defaults and update values from URL
+// return errUnknownTask, ...
+func newNode(url *url.URL) (*node, error) {
+	n := &node{
+		RequestID:    uuid.New(),
+		Topology:     "fan",
+		Index:        1,
+		ParentIndex:  0,
+		Size:         1,
+		Depth:        0,
+		TaskName:     "",
+		TaskDuration: 50,
+	}
+
+	// parse URL and update node values accordingly
+
+	// get task name
+	switch t := taskRe.FindStringSubmatch(url.RequestURI())[1]; t {
+	case "", "sleep", "fail", "crash", "cpu", "ram":
+		n.TaskName = t
+	default:
+		return nil, errUnknownTask
+	}
+
+	// get query parameter
+	q := url.Query()
+
+	// n.Size
+	if s, ok := q["size"]; ok {
+		i, err := strconv.Atoi(s[0])
+		if err != nil || i < 1 || i > maxSize {
+			return nil, errQueryParameter
+		}
+		n.Size = i
+	}
+
+	// n.Topology
+	if t, ok := q["topology"]; ok {
+		switch t[0] {
+		case "fan", "chain", "tree":
+			n.Topology = t[0]
+		default:
+			return nil, errQueryParameter
+		}
+	}
+
+	// n.TaskDuration
+	if t, ok := q["time"]; ok {
+		t, err := strconv.Atoi(t[0])
+		if err != nil || t < 1 {
+			return nil, errQueryParameter
+		}
+		n.TaskDuration = t
+	}
+
+	return n, nil
+}
+
+// Create child node structures
+// to be passed to subsequent requests
 func (n *node) children() []*node {
 	cn := []*node{}
 	switch n.Topology {
 
-	case topBtree:
+	case "tree":
 		cn = make([]*node, 0, 2)
 		for i := 0; i < 2; i++ {
-			index := n.Index + 1<<(uint(n.Level+i))
-			if index > n.Count {
+			index := n.Index + 1<<(uint(n.Depth+i))
+			if index > n.Size {
 				break
 			}
-			cn = append(cn,
-				&node{
-					Topology: n.Topology,
-					Request:  n.Request,
-					Count:    n.Count,
-					Parent:   n.Index,
-					Index:    index,
-					Level:    n.Level + 1,
-					URI:      n.URI,
-				})
+			nn := n
+			nn.Depth++
+			nn.Index = index
+			cn = append(cn, nn)
 		}
 
-	case topChain:
-		if n.Index == n.Count {
+	case "chain":
+		if n.Index == n.Size {
 			break
 		}
-		cn = []*node{
-			&node{
-				Topology: n.Topology,
-				Request:  n.Request,
-				Count:    n.Count,
-				Parent:   n.Index,
-				Index:    n.Index + 1,
-				Level:    n.Level + 1,
-				URI:      n.URI,
-			},
-		}
+		nn := n
+		nn.Index++
+		nn.Depth++
+		cn = []*node{nn}
 
-	case topFan:
+	case "fan":
 		if n.Index > 1 {
 			break
 		}
-		cn = make([]*node, n.Count-1)
-		for index := 2; index <= n.Count; index++ {
-			cn[index-2] =
-				&node{
-					Topology: n.Topology,
-					Request:  n.Request,
-					Count:    n.Count,
-					Parent:   n.Index,
-					Index:    index,
-					Level:    1,
-					URI:      n.URI,
-				}
+		cn = make([]*node, n.Size-1)
+		for index := 2; index <= n.Size; index++ {
+			nn := n
+			nn.Depth = 1
+			nn.Index = index
+			cn[index-2] = nn
 		}
 	}
 
@@ -144,49 +171,15 @@ func (n *node) spawn(c *node, url string) (*http.Response, error) {
 	return resp, nil
 }
 
-type parameters struct {
-	count    int
-	topology int
-}
-
-func getParameters(q url.Values) parameters {
-	// TODO: better error checking
-	p := parameters{
-		count: 1,
-	}
-	if vs := q["count"]; vs != nil {
-		if i, err := strconv.Atoi(vs[0]); err == nil {
-			if i < 1 {
-				i = 1
-			}
-			if i > 4069 {
-				i = 4069
-			}
-			p.count = i
-		}
-	}
-	if vs := q["topology"]; vs != nil {
-		p.topology = topologyMap[vs[0]]
-	}
-	return p
-}
-
 func (s *Server) handleRootNode(w http.ResponseWriter, r *http.Request) {
-	// get query parameter and set defaults
-	p := getParameters(r.URL.Query())
-	uuid := uuid.New()
-	prefix := fmt.Sprintf("[S: %s, R: %s, T: %d, L: %04d, P: %04d, N: %04d]\n  ",
-		s.uuid, uuid, p.topology, 0, 0, 1)
-	n := &node{
-		Topology: p.topology,
-		Request:  uuid,
-		Index:    1,
-		Parent:   0,
-		Count:    p.count,
-		Level:    0,
-		URI:      r.URL.RequestURI(),
-		logger:   log.New(os.Stdout, prefix, log.Lmicroseconds),
+	n, err := newNode(r.URL)
+	if err != nil {
+		// TODO better error handling
+		log.Fatalln("Oops", err)
 	}
+	prefix := fmt.Sprintf("[S: %s, R: %s, L: %04d, P: %04d, N: %04d]\n  ",
+		s.id, n.RequestID, 0, 0, 1)
+	n.logger = log.New(os.Stdout, prefix, log.Lmicroseconds)
 	s.handleNode(n, w, r)
 }
 
@@ -200,10 +193,9 @@ func (s *Server) handleInternalNode(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(b, n); err != nil {
 		panic(err)
 	}
-	prefix := fmt.Sprintf("[S: %s, R: %s, T: %d, L: %04d, P: %04d, N: %04d]\n  ",
-		s.uuid, n.Request, n.Topology, n.Level, n.Parent, n.Index)
+	prefix := fmt.Sprintf("[S: %s, R: %s, L: %04d, P: %04d, N: %04d]\n  ",
+		s.id, n.RequestID, n.Depth, n.ParentIndex, n.Index)
 	n.logger = log.New(os.Stdout, prefix, log.Lmicroseconds)
-
 	s.handleNode(n, w, r)
 }
 
@@ -215,7 +207,7 @@ func (s *Server) handleNode(n *node, w http.ResponseWriter, r *http.Request) {
 
 	// node result(s)
 	nr := make(map[string]string)
-	nr[s.uuid.String()] = fmt.Sprintf("%04d", n.Index)
+	nr[s.id.String()] = fmt.Sprintf("%04d", n.Index)
 
 	type childResult struct {
 		resp *http.Response
@@ -223,9 +215,6 @@ func (s *Server) handleNode(n *node, w http.ResponseWriter, r *http.Request) {
 	}
 
 	statusCode := http.StatusOK
-	if len(cn) == 0 {
-		n.isLeave = true
-	}
 
 	rc := make(chan childResult, len(cn))
 	// spawn child nodes
@@ -265,10 +254,8 @@ func (s *Server) handleNode(n *node, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Execute task
-	if err := n.execTask(); err != nil {
-		panic(err)
-	}
+	// Execute task on any node
+	n.execTask()
 
 	w.WriteHeader(statusCode)
 	w.Header().Set("Content-Type", "application/json")
