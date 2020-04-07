@@ -15,5 +15,5 @@ applications:
   - route: t2m.pub.cf.frnksgr.net
   env:
     TARGET_URL: "http://t2m.priv.cf.frnksgr.net"
-    GOVERSION: go1.12
+    GOVERSION: go1.13
     GO_INSTALL_PACKAGE_SPEC: ./cmd/server

@@ -49,7 +49,7 @@ type node struct {
 // construct a new node
 // set defaults and update values from URL
 // return errUnknownTask, ...
-func newNode(url *url.URL) (*node, error) {
+func newNodeFromURL(url *url.URL) (*node, error) {
 	n := &node{
 		RequestID:    uuid.New(),
 		Topology:     "fan",
@@ -105,6 +105,24 @@ func newNode(url *url.URL) (*node, error) {
 	return n, nil
 }
 
+// construct a new node from parent Node
+// set defaults and update values from URL
+// return errUnknownTask, ...
+func (n *node) newChild() *node {
+	c := &node{
+		RequestID:    uuid.New(),
+		Topology:     n.Topology,
+		Index:        -1, // unspecified
+		ParentIndex:  n.Index,
+		Size:         n.Size,
+		Depth:        -1, // unspecified
+		TaskName:     n.TaskName,
+		TaskDuration: n.TaskDuration,
+	}
+
+	return c
+}
+
 // Create child node structures
 // to be passed to subsequent requests
 func (n *node) children() []*node {
@@ -118,8 +136,8 @@ func (n *node) children() []*node {
 			if index > n.Size {
 				break
 			}
-			nn := n
-			nn.Depth++
+			nn := n.newChild()
+			nn.Depth = n.Depth + 1
 			nn.Index = index
 			cn = append(cn, nn)
 		}
@@ -128,9 +146,9 @@ func (n *node) children() []*node {
 		if n.Index == n.Size {
 			break
 		}
-		nn := n
-		nn.Index++
-		nn.Depth++
+		nn := n.newChild()
+		nn.Index = n.Index + 1
+		nn.Depth = n.Depth + 1
 		cn = []*node{nn}
 
 	case "fan":
@@ -139,7 +157,7 @@ func (n *node) children() []*node {
 		}
 		cn = make([]*node, n.Size-1)
 		for index := 2; index <= n.Size; index++ {
-			nn := n
+			nn := n.newChild()
 			nn.Depth = 1
 			nn.Index = index
 			cn[index-2] = nn
@@ -172,12 +190,12 @@ func (n *node) spawn(c *node, url string) (*http.Response, error) {
 }
 
 func (s *Server) handleRootNode(w http.ResponseWriter, r *http.Request) {
-	n, err := newNode(r.URL)
+	n, err := newNodeFromURL(r.URL)
 	if err != nil {
 		// TODO better error handling
 		log.Fatalln("Oops", err)
 	}
-	prefix := fmt.Sprintf("[S: %s, R: %s, L: %04d, P: %04d, N: %04d]\n  ",
+	prefix := fmt.Sprintf("[S: %s, R: %s, D: %04d, P: %04d, N: %04d]\n  ",
 		s.id, n.RequestID, 0, 0, 1)
 	n.logger = log.New(os.Stdout, prefix, log.Lmicroseconds)
 	s.handleNode(n, w, r)
@@ -193,7 +211,7 @@ func (s *Server) handleInternalNode(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(b, n); err != nil {
 		panic(err)
 	}
-	prefix := fmt.Sprintf("[S: %s, R: %s, L: %04d, P: %04d, N: %04d]\n  ",
+	prefix := fmt.Sprintf("[S: %s, R: %s, D: %04d, P: %04d, N: %04d]\n  ",
 		s.id, n.RequestID, n.Depth, n.ParentIndex, n.Index)
 	n.logger = log.New(os.Stdout, prefix, log.Lmicroseconds)
 	s.handleNode(n, w, r)
