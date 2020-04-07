@@ -10,7 +10,7 @@ services:
       - ${PWD}/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
 
   backend:
-    image: frnksgr/t2m:alpine3.9
+    image: frnksgr/t2m:alpine3.11
     environment:
       TARGET_URL: "http://frontend:8080"
       #DEBUG: "true"

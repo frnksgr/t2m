@@ -11,7 +11,7 @@ test: ## test haproxy in front of multiple t2m backends
 	docker-compose up --scale backend=5 -d
 	for t in binary linear fan; do \
 		for c in 10 100 1000; do \
-			curl "http://localhost:8080?count=$$c&topology=$$t" | jq .; \
+			curl "http://localhost:8080?size=$$c&topology=$$t" | jq .; \
 		done; \
 	done
 	docker-compose down

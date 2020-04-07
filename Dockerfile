@@ -9,7 +9,7 @@ RUN STATIC=1 make build
 # NOTE: CF requires more than scratch
 # while K8S is fine with it.
 # To build image for CF:
-# docker build -t <iamge name> --build-arg BASEIMAGE=alpine:3.9 .
+# docker build -t <iamge name> --build-arg BASEIMAGE=alpine:3.11 .
 
 FROM $BASEIMAGE
 COPY --from=builder /app/bin/server /
