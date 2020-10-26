@@ -25,6 +25,7 @@ help:
 
 .PHONY: build
 build: ## build local to create bin/... executable(s)
+	$(GOENV) go mod vendor
 	$(GOENV) go build $(GOBUILDFLAGS) -v ./pkg/...
 	$(GOENV) go build $(GOBUILDFLAGS) -o ./bin/server ./cmd/server/...
 
@@ -42,7 +43,6 @@ docker-build: ## build docker image
 	docker build -t $(IMAGE) .
 	docker tag $(IMAGE) $(IMAGE):scratch
 	docker build -t $(IMAGE):alpine3.11 --build-arg BASEIMAGE=alpine:3.11 .
-
 
 .PHONY: docker-push
 docker-push: docker-build ## push docker-image
