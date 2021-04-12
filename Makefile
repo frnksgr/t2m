@@ -42,10 +42,10 @@ clean: ## clean up
 docker-build: ## build docker image
 	docker build -t $(IMAGE) .
 	docker tag $(IMAGE) $(IMAGE):scratch
-	docker build -t $(IMAGE):alpine3.11 --build-arg BASEIMAGE=alpine:3.11 .
+	docker build -t $(IMAGE):alpine3.12 --build-arg BASEIMAGE=alpine:3.12 .
 
 .PHONY: docker-push
 docker-push: docker-build ## push docker-image
 	docker push $(IMAGE)
 	docker push $(IMAGE):scratch
-	docker push $(IMAGE):alpine3.11
+	docker push $(IMAGE):alpine3.12
